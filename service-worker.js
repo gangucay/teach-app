@@ -1,15 +1,14 @@
-const CACHE_NAME = 'teachapp-cache-v3'; // Incremented cache version
+const CACHE_NAME = 'teachapp-cache-v4'; // Incremented cache version for the fix
 const URLS_TO_CACHE = [
   './',
-  './index.html', // This now contains all the app logic
+  './index.html', // This file contains all the app logic
   './manifest.json',
-  './vite.svg',
   './icon-192.png',
   './icon-512.png',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/@babel/standalone/babel.min.js',
-  'https://esm.sh/react@18.3.1',
-  'https://esm.sh/react-dom@18.3.1/client'
+  'https://unpkg.com/react@18/umd/react.production.min.js',
+  'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js'
 ];
 
 // Install event: cache all essential assets
@@ -18,7 +17,7 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Opened cache and caching assets for v3');
+        console.log('Opened cache and caching assets for v4');
         return cache.addAll(URLS_TO_CACHE);
       })
   );
