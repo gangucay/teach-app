@@ -1,25 +1,15 @@
-const CACHE_NAME = 'teachapp-cache-v2'; // Changed cache version to force update
+const CACHE_NAME = 'teachapp-cache-v3'; // Incremented cache version
 const URLS_TO_CACHE = [
   './',
-  './index.html',
-  './index.tsx',
-  './App.tsx',
-  './types.ts',
-  './context/AppContext.tsx',
-  './services/geminiService.ts',
-  './components/Icons.tsx',
-  './components/Modal.tsx',
-  './pages/MainPage.tsx',
-  './pages/StudentListPage.tsx',
-  './pages/StudentDetailPage.tsx',
+  './index.html', // This now contains all the app logic
   './manifest.json',
   './vite.svg',
   './icon-192.png',
   './icon-512.png',
   'https://cdn.tailwindcss.com',
-  'https://esm.sh/@google/genai@^1.14.0',
-  'https://esm.sh/react@^19.1.1',
-  'https://esm.sh/react-dom@^19.1.1/'
+  'https://unpkg.com/@babel/standalone/babel.min.js',
+  'https://esm.sh/react@18.3.1',
+  'https://esm.sh/react-dom@18.3.1/client'
 ];
 
 // Install event: cache all essential assets
@@ -28,7 +18,7 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Opened cache and caching assets');
+        console.log('Opened cache and caching assets for v3');
         return cache.addAll(URLS_TO_CACHE);
       })
   );
@@ -66,16 +56,10 @@ self.addEventListener('fetch', event => {
           return cachedResponse;
         }
 
-        // Otherwise, fetch from network
-        return fetch(event.request).then(networkResponse => {
-            // Check if we received a valid response
-            if (networkResponse && networkResponse.status === 200) {
-                 // We don't need to cache the network response here
-                 // because our initial list is comprehensive for the offline shell.
-                 // This simplifies the logic.
-            }
-            return networkResponse;
-        });
+        // Otherwise, fetch from network.
+        // We don't cache new requests here to keep it simple.
+        // The initial cache list is what enables offline mode.
+        return fetch(event.request);
       })
   );
 });
