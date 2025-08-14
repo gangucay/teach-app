@@ -1,6 +1,6 @@
-const CACHE_NAME = 'teachapp-cache-v1';
+const CACHE_NAME = 'teachapp-cache-v2'; // Changed cache version to force update
 const URLS_TO_CACHE = [
-  '.',
+  './',
   './index.html',
   './index.tsx',
   './App.tsx',
@@ -12,6 +12,10 @@ const URLS_TO_CACHE = [
   './pages/MainPage.tsx',
   './pages/StudentListPage.tsx',
   './pages/StudentDetailPage.tsx',
+  './manifest.json',
+  './vite.svg',
+  './icon-192.png',
+  './icon-512.png',
   'https://cdn.tailwindcss.com',
   'https://esm.sh/@google/genai@^1.14.0',
   'https://esm.sh/react@^19.1.1',
@@ -20,13 +24,12 @@ const URLS_TO_CACHE = [
 
 // Install event: cache all essential assets
 self.addEventListener('install', event => {
+  self.skipWaiting(); // Force the new service worker to activate immediately
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Opened cache');
-        // Add icons to cache list
-        const urlsWithIcons = [...URLS_TO_CACHE, './icon-192.png', './icon-512.png'];
-        return cache.addAll(urlsWithIcons);
+        console.log('Opened cache and caching assets');
+        return cache.addAll(URLS_TO_CACHE);
       })
   );
 });
@@ -39,11 +42,12 @@ self.addEventListener('activate', event => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheWhitelist.indexOf(cacheName) === -1) {
+            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
-    })
+    }).then(() => self.clients.claim()) // Take control of all open clients
   );
 });
 
@@ -55,26 +59,23 @@ self.addEventListener('fetch', event => {
   }
   
   event.respondWith(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      const cachedResponse = await cache.match(event.request);
-      
-      const fetchedResponsePromise = fetch(event.request).then((networkResponse) => {
-        // Check if we received a valid response and cache it
-        if (networkResponse && networkResponse.status === 200) {
-            // Do not cache API requests to esm.sh if they are not in the initial list
-            // This prevents caching dynamic imports that might change
-            if (!URLS_TO_CACHE.some(url => networkResponse.url.startsWith(url))) {
-               // Clone the response because it's a stream and can only be consumed once.
-               cache.put(event.request, networkResponse.clone());
-            }
+    caches.match(event.request)
+      .then(cachedResponse => {
+        // Return cached response if found
+        if (cachedResponse) {
+          return cachedResponse;
         }
-        return networkResponse;
-      }).catch(() => {
-        // Fetch failed, maybe network error. If we have a cached response, it's already handled.
-        // If not, this will result in a network error page.
-      });
 
-      return cachedResponse || fetchedResponsePromise;
-    })
+        // Otherwise, fetch from network
+        return fetch(event.request).then(networkResponse => {
+            // Check if we received a valid response
+            if (networkResponse && networkResponse.status === 200) {
+                 // We don't need to cache the network response here
+                 // because our initial list is comprehensive for the offline shell.
+                 // This simplifies the logic.
+            }
+            return networkResponse;
+        });
+      })
   );
 });
