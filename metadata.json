@@ -1,0 +1,5 @@
+{
+  "name": "TeachApp: Student Attendance",
+  "description": "An application for teachers to track student attendance for specific classes and dates. Users can manage classes, students, and log daily attendance with notes.",
+  "requestFramePermissions": []
+}
