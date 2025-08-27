@@ -213,14 +213,20 @@
         };
         const addStudent = (classId, name) => {
           const newStudent = { id: crypto.randomUUID(), name, generalNotes: "", attendance: [] };
-          setClassrooms(prev => prev.map(c => c.id === classId ? { ...c, students: [...c.students, newStudent] } : c));
+          setClassrooms(prev => prev.map(c => {
+              if (c.id === classId) {
+                  const updatedStudents = [...c.students, newStudent].sort((a,b) => a.name.localeCompare(b.name, 'vi'));
+                  return { ...c, students: updatedStudents };
+              }
+              return c;
+          }));
         };
         const updateStudent = (classId, studentId, name, generalNotes) => {
           setClassrooms(prev => prev.map(c => {
             if (c.id === classId) {
               const updatedStudents = c.students.map(s => 
                 s.id === studentId ? { ...s, name, generalNotes } : s
-              );
+              ).sort((a,b) => a.name.localeCompare(b.name, 'vi'));
               return { ...c, students: updatedStudents };
             }
             return c;
@@ -361,7 +367,30 @@
           }
         };
 
-        const value = { classrooms, isLoading, error, view, navigateHome, navigateToClass, navigateToStudent, addClassroom, updateClassroom, deleteClassroom, addStudent, updateStudent, deleteStudent, addAttendanceRecords, addSingleAttendanceRecord, updateAttendanceRecord, deleteAttendanceRecord, setAttendanceForDate, exportData, importData };
+        const importStudents = (classId, studentNames) => {
+            setClassrooms(prev => prev.map(c => {
+                if (c.id === classId) {
+                    const existingStudentNames = new Set(c.students.map(s => s.name.toLowerCase().trim()));
+                    const newStudents = studentNames
+                        .map(name => name.trim())
+                        .filter(name => name.length > 0)
+                        .filter(name => !existingStudentNames.has(name.toLowerCase()))
+                        .map(name => ({ id: crypto.randomUUID(), name, generalNotes: "", attendance: [] }));
+
+                    if (newStudents.length > 0) {
+                        setTimeout(() => alert(`${newStudents.length} học sinh mới đã được thêm vào lớp.`), 100);
+                    } else {
+                        setTimeout(() => alert("Không có học sinh mới nào được thêm. Các học sinh trong tệp có thể đã tồn tại trong lớp."), 100);
+                    }
+                    
+                    const updatedStudentList = [...c.students, ...newStudents].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+                    return { ...c, students: updatedStudentList };
+                }
+                return c;
+            }));
+        };
+
+        const value = { classrooms, isLoading, error, view, navigateHome, navigateToClass, navigateToStudent, addClassroom, updateClassroom, deleteClassroom, addStudent, updateStudent, deleteStudent, addAttendanceRecords, addSingleAttendanceRecord, updateAttendanceRecord, deleteAttendanceRecord, setAttendanceForDate, exportData, importData, importStudents };
         return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
       };
       const useAppContext = () => {
@@ -512,13 +541,14 @@
 
       // --- From pages/StudentListPage.tsx ---
       const StudentListPage = ({ classId }) => {
-        const { classrooms, navigateHome, navigateToStudent, addStudent, deleteStudent, setAttendanceForDate } = useAppContext();
+        const { classrooms, navigateHome, navigateToStudent, addStudent, deleteStudent, setAttendanceForDate, importStudents } = useAppContext();
         const classroom = useMemo(() => classrooms.find(c => c.id === classId), [classrooms, classId]);
         const [selectedStudentIds, setSelectedStudentIds] = useState([]);
         const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
         const [attendanceNote, setAttendanceNote] = useState('');
         const [isModalOpen, setIsModalOpen] = useState(false);
         const [newStudentName, setNewStudentName] = useState('');
+        const studentFileInputRef = useRef(null);
 
         useEffect(() => {
           if (classroom) {
@@ -578,6 +608,36 @@
           alert('Đã lưu điểm danh thành công!');
         };
 
+        const handleImportStudentsClick = () => {
+            studentFileInputRef.current.click();
+        };
+
+        const handleStudentFileChange = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const content = e.target.result;
+                    const names = content.split('\n').map(name => name.trim()).filter(Boolean);
+                    if (names.length > 0) {
+                        importStudents(classId, names);
+                    } else {
+                        alert("Tệp rỗng hoặc không hợp lệ.");
+                    }
+                } catch (error) {
+                    console.error("Lỗi khi đọc tệp:", error);
+                    alert("Đã xảy ra lỗi khi đọc tệp.");
+                }
+            };
+            reader.onerror = () => {
+                 alert("Không thể đọc tệp.");
+            };
+            reader.readAsText(file);
+            event.target.value = null;
+        };
+
         return (
           <div className="p-4 sm:p-6 lg:p-8">
             <header className="flex items-center justify-between mb-4">
@@ -594,10 +654,12 @@
               <div className="flex flex-wrap gap-2 items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
                 <div className="flex flex-wrap gap-2">
                     <button onClick={() => setIsModalOpen(true)} className="flex items-center px-3 py-2 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600"><PlusIcon className="w-4 h-4 mr-1" /> Thêm học sinh</button>
+                    <button onClick={handleImportStudentsClick} className="flex items-center px-3 py-2 bg-purple-500 text-white text-sm rounded-md hover:bg-purple-600"><UploadIcon className="w-4 h-4 mr-1" /> Nhập từ file</button>
                     <button onClick={handleDeleteSelected} disabled={selectedStudentIds.length === 0} className="flex items-center px-3 py-2 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 disabled:bg-red-300"><TrashIcon className="w-4 h-4 mr-1" /> Xoá đã chọn</button>
                     <button onClick={handleSelectAll} className="flex items-center px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-md hover:bg-gray-300"><CheckSquareIcon className="w-4 h-4 mr-1" /> Chọn tất cả</button>
                     <button onClick={handleInvertSelection} className="flex items-center px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-md hover:bg-gray-300"><RefreshCwIcon className="w-4 h-4 mr-1" /> Đảo ngược chọn</button>
                 </div>
+                <input type="file" ref={studentFileInputRef} onChange={handleStudentFileChange} accept=".txt,text/plain" style={{ display: 'none' }} />
               </div>
               
               <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-4">
@@ -629,7 +691,7 @@
               </div>
               
               <ul className="space-y-2">
-                {classroom.students.map(student => (
+                {[...classroom.students].sort((a, b) => a.name.localeCompare(b.name, 'vi')).map(student => (
                   <li key={student.id} className="flex items-center p-3 rounded-md hover:bg-gray-100 transition-colors duration-150">
                     <input type="checkbox" checked={selectedStudentIds.includes(student.id)} onChange={() => handleSelectStudent(student.id)} className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-4"/>
                     <div className="flex-grow cursor-pointer" onClick={() => navigateToStudent(classId, student.id)}>
