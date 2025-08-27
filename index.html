@@ -159,6 +159,21 @@
         console.warn("Using mock data because app is running in browser without server-side API key.");
         return MOCK_DATA;
       };
+      
+      // --- Helper for sorting Vietnamese names ---
+      const vietnameseNameSort = (a, b) => {
+          const getName = (fullName) => {
+              const parts = fullName.trim().split(' ');
+              return parts.length > 0 ? parts[parts.length - 1] : '';
+          };
+          const nameA = getName(a.name);
+          const nameB = getName(b.name);
+          const comparison = nameA.localeCompare(nameB, 'vi');
+          if (comparison !== 0) {
+              return comparison;
+          }
+          return a.name.localeCompare(b.name, 'vi'); // Fallback to full name comparison
+      };
 
       // --- From context/AppContext.tsx ---
       const AppContext = createContext(undefined);
@@ -215,7 +230,7 @@
           const newStudent = { id: crypto.randomUUID(), name, generalNotes: "", attendance: [] };
           setClassrooms(prev => prev.map(c => {
               if (c.id === classId) {
-                  const updatedStudents = [...c.students, newStudent].sort((a,b) => a.name.localeCompare(b.name, 'vi'));
+                  const updatedStudents = [...c.students, newStudent].sort(vietnameseNameSort);
                   return { ...c, students: updatedStudents };
               }
               return c;
@@ -226,7 +241,7 @@
             if (c.id === classId) {
               const updatedStudents = c.students.map(s => 
                 s.id === studentId ? { ...s, name, generalNotes } : s
-              ).sort((a,b) => a.name.localeCompare(b.name, 'vi'));
+              ).sort(vietnameseNameSort);
               return { ...c, students: updatedStudents };
             }
             return c;
@@ -383,7 +398,7 @@
                         setTimeout(() => alert("Không có học sinh mới nào được thêm. Các học sinh trong tệp có thể đã tồn tại trong lớp."), 100);
                     }
                     
-                    const updatedStudentList = [...c.students, ...newStudents].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+                    const updatedStudentList = [...c.students, ...newStudents].sort(vietnameseNameSort);
                     return { ...c, students: updatedStudentList };
                 }
                 return c;
@@ -594,6 +609,7 @@
           }
         };
         const handleDeleteSelected = () => {
+          if (selectedStudentIds.length === 0) return;
           if (window.confirm(`Bạn có chắc muốn xoá ${selectedStudentIds.length} học sinh đã chọn?`)) {
             selectedStudentIds.forEach(id => deleteStudent(classId, id));
             setSelectedStudentIds([]);
@@ -646,16 +662,13 @@
                 Tất cả lớp học
               </button>
             </header>
-            <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="bg-white p-6 rounded-lg shadow-md mb-24">
               <div className="border-b pb-4 mb-4">
                 <h1 className="text-3xl font-bold text-gray-800">{classroom.name}</h1>
                 <p className="text-gray-500">Sĩ số: {classroom.students.length}</p>
               </div>
               <div className="flex flex-wrap gap-2 items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
                 <div className="flex flex-wrap gap-2">
-                    <button onClick={() => setIsModalOpen(true)} className="flex items-center px-3 py-2 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600"><PlusIcon className="w-4 h-4 mr-1" /> Thêm học sinh</button>
-                    <button onClick={handleImportStudentsClick} className="flex items-center px-3 py-2 bg-purple-500 text-white text-sm rounded-md hover:bg-purple-600"><UploadIcon className="w-4 h-4 mr-1" /> Nhập từ file</button>
-                    <button onClick={handleDeleteSelected} disabled={selectedStudentIds.length === 0} className="flex items-center px-3 py-2 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 disabled:bg-red-300"><TrashIcon className="w-4 h-4 mr-1" /> Xoá đã chọn</button>
                     <button onClick={handleSelectAll} className="flex items-center px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-md hover:bg-gray-300"><CheckSquareIcon className="w-4 h-4 mr-1" /> Chọn tất cả</button>
                     <button onClick={handleInvertSelection} className="flex items-center px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-md hover:bg-gray-300"><RefreshCwIcon className="w-4 h-4 mr-1" /> Đảo ngược chọn</button>
                 </div>
@@ -691,7 +704,7 @@
               </div>
               
               <ul className="space-y-2">
-                {[...classroom.students].sort((a, b) => a.name.localeCompare(b.name, 'vi')).map(student => (
+                {[...classroom.students].sort(vietnameseNameSort).map(student => (
                   <li key={student.id} className="flex items-center p-3 rounded-md hover:bg-gray-100 transition-colors duration-150">
                     <input type="checkbox" checked={selectedStudentIds.includes(student.id)} onChange={() => handleSelectStudent(student.id)} className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-4"/>
                     <div className="flex-grow cursor-pointer" onClick={() => navigateToStudent(classId, student.id)}>
@@ -703,6 +716,41 @@
                 {classroom.students.length === 0 && <p className="text-center text-gray-500 py-4">Chưa có học sinh nào trong lớp. Hãy thêm học sinh mới.</p>}
               </ul>
             </div>
+
+            <div className="fixed bottom-6 right-6 flex flex-col items-center gap-3 z-20">
+                <button 
+                  onClick={handleDeleteSelected} 
+                  disabled={selectedStudentIds.length === 0}
+                  className="group relative flex items-center justify-center w-14 h-14 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 disabled:bg-red-300 disabled:cursor-not-allowed transition-all"
+                  aria-label="Xoá học sinh đã chọn"
+                >
+                  <TrashIcon className="w-7 h-7" />
+                  <span className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                      Xoá đã chọn ({selectedStudentIds.length})
+                  </span>
+                </button>
+                <button 
+                  onClick={handleImportStudentsClick} 
+                  className="group relative flex items-center justify-center w-14 h-14 bg-purple-500 text-white rounded-full shadow-lg hover:bg-purple-600 transition-all"
+                  aria-label="Nhập từ file"
+                >
+                  <UploadIcon className="w-7 h-7" />
+                  <span className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2">
+                      Nhập từ file
+                  </span>
+                </button>
+                <button 
+                  onClick={() => setIsModalOpen(true)} 
+                  className="group relative flex items-center justify-center w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 transition-all"
+                  aria-label="Thêm học sinh mới"
+                >
+                  <PlusIcon className="w-7 h-7" />
+                   <span className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2">
+                      Thêm học sinh
+                  </span>
+                </button>
+            </div>
+            
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Thêm học sinh mới">
               <div className="space-y-4">
                 <div>
